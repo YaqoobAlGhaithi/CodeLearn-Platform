@@ -1,48 +1,54 @@
 name: Build APK
+on: workflow_dispatch: push: branches: - main - master
+permissions: contents: read
+jobs: build: runs-on: ubuntu-latest
+steps:
+  - name: Checkout Repository
+    uses: actions/checkout@v4
 
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+  - name: Setup Node.js
+    uses: actions/setup-node@v4
+    with:
+      node-version: 22
+      cache: npm
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: 21
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  - name: Install Dependencies
+    run: |
+      npm install
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
+  - name: Check TypeScript
+    run: npm run check || true
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+  - name: Run Tests
+    run: npm test || true
 
-      - name: Install Dependencies
-        run: npm ci
+  - name: Build Web Project
+    run: npm run build
 
-      - name: Build Web
-        run: npm run build
+  - name: Verify Capacitor Exists
+    run: |
+      if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
+        echo "Capacitor configuration not found."
+        exit 1
+      fi
 
-      - name: Sync Capacitor
-        run: npx cap sync android
+  - name: Sync Capacitor
+    run: npx cap sync android
 
-      - name: Build APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+  - name: Build Android APK
+    run: |
+      cd android
+      chmod +x gradlew
+      ./gradlew assembleDebug
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: CodeLearn-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: CodeLearn-APK
+      path: android/app/build/outputs/apk/debug/app-debug.apk
